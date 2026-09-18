@@ -17,6 +17,7 @@
     .board-top, .board-bottom { display: flex; justify-content: space-between; gap: 20px; color: #f6efdf; } .board-top { margin-bottom: 22px; } .board-bottom { margin-top: 24px; align-items: end; }
     .score { color: #e8d2a0; font-size: .95rem; } .table { min-height: 205px; display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 12px; padding: 15px; border: 1px solid #ffffff30; border-radius: 12px; background: #082e2840; }
     .cards { display: flex; flex-wrap: wrap; gap: 10px; } .card { width: 66px; height: 94px; display: grid; place-items: center; border: 2px solid #ddd4c3; border-radius: 7px; background: #fffdf7; box-shadow: 0 4px 8px #061f1b55; color: var(--ink); font-weight: bold; font-size: 1.15rem; } .card.red { color: var(--red); }
+    .instructions { margin-bottom: 25px; padding: 18px 22px; border-left: 5px solid var(--gold); background: #fffaf0; } .instructions h2 { margin-bottom: 7px; } .instructions p { color: var(--muted); } .instructions strong { color: var(--ink); }
     .hand-area { margin-top: 25px; padding: 18px; border-radius: 10px; background: #fffaf0cc; } .hand-area h2 { color: var(--ink); } .hand-card { width: 72px; height: 102px; } .empty { color: #d5dfd7; font-style: italic; }
     .actions { margin-top: 25px; padding: 18px; background: #fffaf0; border-radius: 10px; } .actions h2 { display: flex; justify-content: space-between; } #status { font-size: .9rem; color: var(--muted); font-weight: normal; }
     #moves { display: grid; gap: 8px; } .move { padding: 10px 13px; text-align: left; background: #e5f0e7; color: var(--ink); } .move:hover { background: #c9e1cf; } .move:disabled { cursor: wait; opacity: .55; }
@@ -27,6 +28,13 @@
 <body>
   <main>
     <header><div><p class="subtle">Hungarian two-player Cassino</p><h1>Cassino</h1></div><button id="new-deal">New deal</button></header>
+    <section class="instructions" aria-labelledby="instructions-title">
+      <h2 id="instructions-title">How to play</h2>
+      <p><strong>Goal:</strong> capture more cards and score more points than the computer. Choose one of the legal moves shown below your hand.</p>
+      <p><strong>Captures:</strong> play a card to take table cards whose values add up to its value. You may also combine cards from your hand when the displayed move allows it. A move without a capture simply places a card on the table.</p>
+      <p><strong>Turns:</strong> the computer responds automatically after your move. The deal ends when every card has been captured.</p>
+      <p><strong>Scoring:</strong> points come from captured-card majorities, special cards, aces, sweeps, and other tested Cassino bonuses. Your final score and the computer's score appear at the end.</p>
+    </section>
     <section class="board" aria-label="Cassino table">
       <div class="board-top"><span>Computer</span><span id="computer-score" class="score"></span></div>
       <div id="table" class="table" aria-label="Cards on table"></div>
@@ -41,7 +49,9 @@
     const card = (name, extra = "") => `<span class="card ${/[HD]$/.test(name) ? "red" : ""} ${extra}">${name.slice(0, -1)}${name.slice(-1)}</span>`;
     const $ = (id) => document.getElementById(id);
     let busy = false;
+    let currentState = null;
     function render(s) {
+      currentState = s;
       $("table").innerHTML = s.table.length ? s.table.map(c => card(c)).join("") : '<span class="empty">The table is clear</span>';
       $("hand").innerHTML = s.hands[0].length ? s.hands[0].map(c => card(c, "hand-card")).join("") : '<span class="subtle">No cards in hand</span>';
       $("computer-score").textContent = `${s.piles[1]} captured · ${s.sweeps[1]} sweeps`;
@@ -56,6 +66,12 @@
     async function refresh() { render(await load("/api/state")); }
     async function play(index) { if (busy) return; busy = true; document.querySelectorAll(".move").forEach(b => b.disabled = true); try { render(await load("/api/move", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ index }) })); } finally { busy = false; } }
     $("new-deal").onclick = async () => { busy = true; try { render(await load("/api/new", { method: "POST" })); } finally { busy = false; } };
+    document.addEventListener("keydown", event => {
+      if (event.code === "Space" && currentState?.finished && !busy) {
+        event.preventDefault();
+        $("new-deal").click();
+      }
+    });
     refresh().catch(error => $("status").textContent = error.message);
   </script>
 </body>
