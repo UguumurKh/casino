@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cassino</title>
+  <style>
+    :root { color-scheme: light; --ink: #17221e; --muted: #60716b; --felt: #145447; --felt-dark: #0c3b33; --cream: #f4efe4; --gold: #e7b65a; --red: #b54a42; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--ink); background: radial-gradient(circle at top left, #fff8e9, var(--cream) 45%, #d9e0d5); font: 16px/1.45 Georgia, serif; }
+    main { width: min(1050px, 94vw); margin: 0 auto; padding: 28px 0 42px; }
+    header { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 22px; }
+    h1, h2, p { margin: 0; } h1 { font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: .02em; } h2 { font-size: 1.15rem; margin-bottom: 10px; } .subtle { color: var(--muted); }
+    button { border: 0; border-radius: 7px; cursor: pointer; font: inherit; }
+    #new-deal { padding: 11px 16px; background: var(--ink); color: white; }
+    .board { padding: clamp(18px, 4vw, 36px); border: 7px solid #c7934a; border-radius: 18px; background: radial-gradient(circle at center, #1b6c59, var(--felt) 70%, var(--felt-dark)); box-shadow: 0 20px 45px #26403635; }
+    .board-top, .board-bottom { display: flex; justify-content: space-between; gap: 20px; color: #f6efdf; } .board-top { margin-bottom: 22px; } .board-bottom { margin-top: 24px; align-items: end; }
+    .score { color: #e8d2a0; font-size: .95rem; } .table { min-height: 205px; display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 12px; padding: 15px; border: 1px solid #ffffff30; border-radius: 12px; background: #082e2840; }
+    .cards { display: flex; flex-wrap: wrap; gap: 10px; } .card { width: 66px; height: 94px; display: grid; place-items: center; border: 2px solid #ddd4c3; border-radius: 7px; background: #fffdf7; box-shadow: 0 4px 8px #061f1b55; color: var(--ink); font-weight: bold; font-size: 1.15rem; } .card.red { color: var(--red); }
+    .hand-area { margin-top: 25px; padding: 18px; border-radius: 10px; background: #fffaf0cc; } .hand-area h2 { color: var(--ink); } .hand-card { width: 72px; height: 102px; } .empty { color: #d5dfd7; font-style: italic; }
+    .actions { margin-top: 25px; padding: 18px; background: #fffaf0; border-radius: 10px; } .actions h2 { display: flex; justify-content: space-between; } #status { font-size: .9rem; color: var(--muted); font-weight: normal; }
+    #moves { display: grid; gap: 8px; } .move { padding: 10px 13px; text-align: left; background: #e5f0e7; color: var(--ink); } .move:hover { background: #c9e1cf; } .move:disabled { cursor: wait; opacity: .55; }
+    .result { margin-top: 18px; padding: 18px; border-left: 5px solid var(--gold); background: #fff4cf; } [hidden] { display: none !important; }
+    @media (max-width: 600px) { header { align-items: start; flex-direction: column; } .board-top, .board-bottom { flex-direction: column; } .table { min-height: 165px; } .card { width: 54px; height: 78px; font-size: 1rem; } .hand-card { width: 60px; height: 88px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header><div><p class="subtle">Hungarian two-player Cassino</p><h1>Cassino</h1></div><button id="new-deal">New deal</button></header>
+    <section class="board" aria-label="Cassino table">
+      <div class="board-top"><span>Computer</span><span id="computer-score" class="score"></span></div>
+      <div id="table" class="table" aria-label="Cards on table"></div>
+      <div class="board-bottom"><span>You</span><span id="your-score" class="score"></span></div>
+    </section>
+    <section class="hand-area"><h2>Your cards</h2><div id="hand" class="cards"></div></section>
+    <section class="actions"><h2>Legal moves <span id="status"></span></h2><div id="moves"></div></section>
+    <section id="result" class="result" hidden></section>
+  </main>
+  <script>
+    const suitNames = { S: "spades", H: "hearts", D: "diamonds", C: "clubs" };
+    const card = (name, extra = "") => `<span class="card ${/[HD]$/.test(name) ? "red" : ""} ${extra}">${name.slice(0, -1)}${name.slice(-1)}</span>`;
+    const $ = (id) => document.getElementById(id);
+    let busy = false;
+    function render(s) {
+      $("table").innerHTML = s.table.length ? s.table.map(c => card(c)).join("") : '<span class="empty">The table is clear</span>';
+      $("hand").innerHTML = s.hands[0].length ? s.hands[0].map(c => card(c, "hand-card")).join("") : '<span class="subtle">No cards in hand</span>';
+      $("computer-score").textContent = `${s.piles[1]} captured · ${s.sweeps[1]} sweeps`;
+      $("your-score").textContent = `${s.piles[0]} captured · ${s.sweeps[0]} sweeps`;
+      $("moves").innerHTML = s.moves.length ? s.moves.map((m, i) => `<button class="move" data-index="${i}">${m.label}</button>`).join("") : '<span class="subtle">Waiting for the computer...</span>';
+      $("status").textContent = s.finished ? "Deal complete" : s.player === 0 ? "Your turn" : "Computer turn";
+      $("result").hidden = !s.finished;
+      if (s.finished) $("result").innerHTML = `<strong>Final score</strong><br>You ${s.score[0]} — Computer ${s.score[1]}<br><span class="subtle">Start a new deal above to play again.</span>`;
+      document.querySelectorAll(".move").forEach(button => button.onclick = () => play(Number(button.dataset.index)));
+    }
+    async function load(url, options) { const response = await fetch(url, options); if (!response.ok) throw new Error(await response.text()); return response.json(); }
+    async function refresh() { render(await load("/api/state")); }
+    async function play(index) { if (busy) return; busy = true; document.querySelectorAll(".move").forEach(b => b.disabled = true); try { render(await load("/api/move", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ index }) })); } finally { busy = false; } }
+    $("new-deal").onclick = async () => { busy = true; try { render(await load("/api/new", { method: "POST" })); } finally { busy = false; } };
+    refresh().catch(error => $("status").textContent = error.message);
+  </script>
+</body>
+</html>

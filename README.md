@@ -20,6 +20,14 @@ uv run pytest
 
 Without `uv`: `python -m pip install pytest`, then `python -m pytest`.
 
+## Start the browser game
+
+```sh
+uv run python app.py
+```
+
+Then open `http://127.0.0.1:8000`.
+
 ## The interface the tests use
 
 ```python
